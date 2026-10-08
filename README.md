@@ -1,3 +1,10 @@
+> **FlClash SHUO Custom v1.0.0** — shuowang0217 的智能优选定制版。
+> 包含 AI 单国家测速优选、10 分钟检测、手动保持及流量保护。
+> 本仓库是基于 GPL-3.0 的社区 Fork，**并非 chen08209 官方发行版**。
+> [SHUO 发布说明](SHUO_RELEASE.md) · [正式版发布页面](https://github.com/shuowang0217/FlClash-Custom/releases)
+
+---
+
 <div align="center">
 
 <img src="assets/images/icon.png" alt="FlClash" width="88">
