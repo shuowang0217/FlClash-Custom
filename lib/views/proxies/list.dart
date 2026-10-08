@@ -319,9 +319,7 @@ class _ProxiesListViewState extends ConsumerState<ProxiesListView> {
                     PinnedHeaderSliver(
                       child: SizedBox(height: barInset + _pinnedHeaderGap),
                     ),
-                    const SliverToBoxAdapter(
-                      child: SmartSelectStatusCard(),
-                    ),
+                    const SliverToBoxAdapter(child: SmartSelectStatusCard()),
                     for (final group in state.groups)
                       _buildGroup(
                         context,
