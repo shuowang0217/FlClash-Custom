@@ -118,9 +118,13 @@ jobs:
           "$APK_SIGNER" verify --verbose "$APK"
           "$AAPT" dump badging "$APK" | grep -E "^package: name='com[.]shuowang[.]flclash[.]custom' versionCode='10001' versionName='1[.]0[.]1'"
           EXPECTED='3e8826e8aa48576ddfce7a9a2e78106a159c7be05dbb3b2f89eb60fb095ac9d9'
-          ACTUAL="$("$APK_SIGNER" verify --print-certs "$APK" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d '\r\n' | tr '[:upper:]' '[:lower:]')"
+          CERT_INFO="$("$APK_SIGNER" verify --print-certs "$APK")"
+          ACTUAL="$(printf '%s\n' "$CERT_INFO" | sed -nE 's/.*certificate SHA-256 digest:[[:space:]]*([0-9a-fA-F]{64}).*/\1/p' | tr '[:upper:]' '[:lower:]' | head -n 1)"
+          echo "Expected v1.0.0 public certificate digest: $EXPECTED"
+          echo "New v1.0.1 public certificate digest: ${ACTUAL:-not found}"
           if [ "$ACTUAL" != "$EXPECTED" ]; then
-            echo "::error::Signing certificate differs from Android v1.0.0; in-place upgrade would fail."
+            echo "::error::APK certificate verification mismatch. Signing material was not changed; inspect public certificate digests."
+            printf '%s\n' "$CERT_INFO" | grep -i "certificate SHA-256" || true
             exit 1
           fi
           mkdir -p dist
