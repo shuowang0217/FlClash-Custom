@@ -8,6 +8,86 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'smart_select_controller.dart';
 
+
+/// The side sheet is itself a modal route. Inline options avoid opening
+/// another popup route behind the sheet on certain Windows window sizes.
+/// Kept public to make the real selection behavior widget-testable.
+class SmartInlinePicker<T> extends StatefulWidget {
+  const SmartInlinePicker({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.options,
+    required this.onSelected,
+  });
+
+  final String title;
+  final T value;
+  final Map<T, String> options;
+  final ValueChanged<T> onSelected;
+
+  @override
+  State<SmartInlinePicker<T>> createState() => _SmartInlinePickerState<T>();
+}
+
+class _SmartInlinePickerState<T> extends State<SmartInlinePicker<T>> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = widget.options[widget.value] ?? widget.value.toString();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OutlinedButton(
+            onPressed: () => setState(() => _isExpanded = !_isExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(widget.title, style: Theme.of(context).textTheme.labelMedium),
+                        const SizedBox(height: 4),
+                        Text(selected, style: Theme.of(context).textTheme.bodyMedium),
+                      ],
+                    ),
+                  ),
+                  Icon(_isExpanded ? Icons.expand_less : Icons.expand_more),
+                ],
+              ),
+            ),
+          ),
+          if (_isExpanded)
+            Card(
+              child: Column(
+                children: [
+                  for (final entry in widget.options.entries)
+                    ListTile(
+                      dense: true,
+                      title: Text(entry.value),
+                      selected: widget.value == entry.key,
+                      trailing: widget.value == entry.key
+                          ? const Icon(Icons.check_circle)
+                          : null,
+                      onTap: () {
+                        widget.onSelected(entry.key);
+                        setState(() => _isExpanded = false);
+                      },
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Put this immediately above the original proxy-group tabs. No original
 /// proxy card, search, group selection or delay-test control is replaced.
 class SmartSelectStatusCard extends ConsumerWidget {
@@ -143,15 +223,11 @@ class _SmartSelectPanelState extends ConsumerState<SmartSelectPanel> {
       SwitchListTile(title: const Text('AI 模式'),
         subtitle: const Text('开启后仅测所选的一个国家/地区，并立即测速'),
         value: s.aiMode, onChanged: (v) => action.configure(aiMode: v)),
-      if (s.aiMode) Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: DropdownButtonFormField<String>(
-          value: s.country,
-          decoration: const InputDecoration(labelText: '固定国家 / 地区', border: OutlineInputBorder()),
-          items: smartCountries.entries.map((e) => DropdownMenuItem(
-            value: e.key, child: Text(e.value))).toList(),
-          onChanged: (v) { if (v != null) action.configure(country: v); },
-        ),
+      if (s.aiMode) SmartInlinePicker<String>(
+        title: '固定国家 / 地区',
+        value: s.country,
+        options: smartCountries,
+        onSelected: (country) => action.configure(country: country),
       ),
       ListTile(title: const Text('当前监控代理组'), subtitle: Text(group),
         trailing: const Icon(Icons.sync_alt),
@@ -159,11 +235,12 @@ class _SmartSelectPanelState extends ConsumerState<SmartSelectPanel> {
       const Divider(),
       const ListTile(title: Text('真实下载测速'),
         subtitle: Text('采用内核绑定单节点的下载测速，不以延迟代替速度')),
-      ListTile(title: const Text('测速周期'), trailing: DropdownButton<int>(
+      SmartInlinePicker<int>(
+        title: '测速周期',
         value: s.intervalMinutes,
-        items: [5,10,30,60].map((x)=>DropdownMenuItem(value:x,child:Text('$x 分钟'))).toList(),
-        onChanged:(v){if(v!=null) action.configure(intervalMinutes:v);},
-      )),
+        options: const {5: '5 分钟', 10: '10 分钟', 30: '30 分钟', 60: '60 分钟'},
+        onSelected: (minutes) => action.configure(intervalMinutes: minutes),
+      ),
       ListTile(title: Text('自动切换阈值 ${s.switchThreshold}%'),
         subtitle: Slider(min: 5, max: 50, divisions: 9, value: s.switchThreshold.toDouble(),
           onChanged: (v) => action.configure(switchThreshold: v.round()))),
@@ -202,11 +279,12 @@ class _SmartSelectPanelState extends ConsumerState<SmartSelectPanel> {
   }
 
   Widget _choice(String name, int current, List<int> values, void Function(int) change) {
-    return ListTile(title: Text(name), trailing: DropdownButton<int>(
+    return SmartInlinePicker<int>(
+      title: name,
       value: current,
-      items: values.map((n) => DropdownMenuItem(value:n,child:Text('$n MB'))).toList(),
-      onChanged: (v) {if (v != null) change(v);},
-    ));
+      options: {for (final value in values) value: '$value MB'},
+      onSelected: change,
+    );
   }
 
   Widget _ranking(SmartSelectState s, SmartSelectController action, String group) {
