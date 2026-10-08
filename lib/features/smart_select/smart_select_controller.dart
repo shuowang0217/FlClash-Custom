@@ -274,8 +274,9 @@ class SmartSelectController extends Notifier<SmartSelectState> {
       if (prev?.id != next?.id ||
           prev?.currentGroupName != next?.currentGroupName) {
         _generation++;
-        if (_ready && state.enabled)
+        if (_ready && state.enabled) {
           scheduleMicrotask(() => unawaited(testNow()));
+        }
       }
     });
     ref.listen(coreStatusProvider, (prev, next) {

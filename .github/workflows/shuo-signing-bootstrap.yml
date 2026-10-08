@@ -1,0 +1,56 @@
+name: SHUO permanent Android signing bootstrap
+on:
+  push:
+    branches:
+      - release/shuo-v1.0.0
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: shuo-permanent-signing
+  cancel-in-progress: false
+jobs:
+  initialize:
+    if: github.ref == 'refs/heads/release/shuo-v1.0.0'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check if key exists or signing secret is configured
+        id: status
+        shell: bash
+        env:
+          SHUO_SIGNING_PASSWORD: ${{ secrets.SHUO_SIGNING_PASSWORD }}
+        run: |
+          if test -f android/signing/shuo-release.jks.enc; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Permanent encrypted key already exists; preserving it."
+          elif test -z "$SHUO_SIGNING_PASSWORD"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Add the SHUO_SIGNING_PASSWORD Actions repository secret to initialize."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-java@v4
+        if: steps.status.outputs.skip == 'false'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare cloud encryption dependencies
+        if: steps.status.outputs.skip == 'false'
+        run: python3 -m pip install --user 'cryptography>=43,<48'
+      - name: Create fixed keystore once and commit only encrypted ciphertext
+        if: steps.status.outputs.skip == 'false'
+        shell: bash
+        env:
+          SHUO_SIGNING_PASSWORD: ${{ secrets.SHUO_SIGNING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test ! -e android/signing/shuo-release.jks.enc
+          python3 scripts/shuo_signing.py generate
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android/signing/shuo-release.jks.enc
+          git commit -m 'build(signing): preserve AES-GCM encrypted permanent Android keystore'
+          git push origin HEAD:release/shuo-v1.0.0

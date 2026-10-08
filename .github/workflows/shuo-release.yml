@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - release/shuo-v1.0.0
+      - main
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Publish v1.0.0 to Releases (only on main with Android release signing enabled)'
+        description: 'Publish manually if desired (main branch release is automatic after signing is configured)'
         required: true
         type: boolean
         default: false
@@ -43,6 +44,21 @@ jobs:
         run: dart format --output=none --set-exit-if-changed lib test tool plugins setup.dart
       - name: Smart-select tests
         run: flutter test test/smart_select_test.dart test/smart_select_version_test.dart
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Cloud Android signing encrypt/decrypt self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user 'cryptography>=43,<48'
+          export SHUO_SIGNING_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          python3 scripts/shuo_signing.py generate --encrypted "$RUNNER_TEMP/shuo-test-key.enc"
+          python3 scripts/shuo_signing.py restore --encrypted "$RUNNER_TEMP/shuo-test-key.enc" --output "$RUNNER_TEMP/shuo-test.jks" --properties "$RUNNER_TEMP/shuo-local.properties"
+          test -s "$RUNNER_TEMP/shuo-test.jks"
+          rm -f "$RUNNER_TEMP/shuo-test-key.enc" "$RUNNER_TEMP/shuo-test.jks" "$RUNNER_TEMP/shuo-local.properties"
+
 
   windows-release:
     name: Windows SHUO release EXE and ZIP
@@ -115,60 +131,82 @@ jobs:
           if-no-files-found: error
 
   android-release:
-    name: Android signed release APK (requires stable private keystore)
-    if: ${{ vars.SHUO_ANDROID_SIGNED == 'true' }}
+    name: Android permanently signed SHUO APK (cloud key)
     needs: verify
     runs-on: ubuntu-latest
+    outputs:
+      signed: ${{ steps.key.outputs.available }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Detect initialized permanent signing key
+        id: key
+        shell: bash
+        env:
+          SHUO_SIGNING_PASSWORD: ${{ secrets.SHUO_SIGNING_PASSWORD }}
+        run: |
+          if test -f android/signing/shuo-release.jks.enc && test -n "$SHUO_SIGNING_PASSWORD"; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Permanent signing key is configured."
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Permanent signing initialization is pending; unsigned release is suppressed."
+          fi
       - uses: actions/setup-go@v5
+        if: steps.key.outputs.available == 'true'
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: core/go.sum
       - uses: subosito/flutter-action@v2
+        if: steps.key.outputs.available == 'true'
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: master
           cache: true
       - uses: gradle/actions/setup-gradle@v6
+        if: steps.key.outputs.available == 'true'
       - uses: nttld/setup-ndk@v1
+        if: steps.key.outputs.available == 'true'
         id: ndk
         with:
           ndk-version: ${{ env.NDK_VERSION }}
           add-to-path: true
           link-to-sdk: true
-      - run: flutter pub get
-      - name: Configure stable Android release signing
-        shell: bash
+      - uses: actions/setup-java@v4
+        if: steps.key.outputs.available == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch Flutter dependencies
+        if: steps.key.outputs.available == 'true'
+        run: flutter pub get
+      - name: Recover previously created signing certificate (never regenerate)
+        if: steps.key.outputs.available == 'true'
         env:
-          KEYSTORE_B64: ${{ secrets.SHUO_KEYSTORE_BASE64 }}
-          KEY_ALIAS: ${{ secrets.SHUO_KEY_ALIAS }}
-          STORE_PASSWORD: ${{ secrets.SHUO_STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.SHUO_KEY_PASSWORD }}
+          SHUO_SIGNING_PASSWORD: ${{ secrets.SHUO_SIGNING_PASSWORD }}
         run: |
-          test -n "$KEYSTORE_B64" && test -n "$KEY_ALIAS"
-          test -n "$STORE_PASSWORD" && test -n "$KEY_PASSWORD"
-          echo "$KEYSTORE_B64" | base64 -d > android/app/keystore.jks
-          {
-            printf 'keyAlias=%s\n' "$KEY_ALIAS"
-            printf 'storePassword=%s\n' "$STORE_PASSWORD"
-            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
-          } >> android/local.properties
-      - name: Build Android signed release
+          python3 -m pip install --user 'cryptography>=43,<48'
+          python3 scripts/shuo_signing.py restore --properties android/local.properties
+      - name: Build Android SIGNED release
+        if: steps.key.outputs.available == 'true'
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: flutter build apk --release --target-platform android-arm64
       - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.available == 'true'
         with:
           name: SHUO-Custom-v1.0.0-Android-RELEASE-SIGNED
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+      - name: Remove signing material from runner workspace
+        if: always()
+        shell: bash
+        run: rm -f android/app/keystore.jks
 
   publish:
     name: Publish stable GitHub Release
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' && vars.SHUO_ANDROID_SIGNED == 'true' }}
+    if: ${{ github.ref == 'refs/heads/main' && needs.android-release.outputs.signed == 'true' }}
     needs: [verify, windows-release, android-release]
     runs-on: ubuntu-latest
     permissions:
