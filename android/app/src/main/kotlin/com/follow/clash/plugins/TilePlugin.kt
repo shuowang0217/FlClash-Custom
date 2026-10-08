@@ -11,7 +11,7 @@ class TilePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel =
-            MethodChannel(flutterPluginBinding.binaryMessenger, "${Components.PACKAGE_NAME}/tile")
+            MethodChannel(flutterPluginBinding.binaryMessenger, "${Components.FLUTTER_CHANNEL_NAMESPACE}/tile")
         channel.setMethodCallHandler(this)
     }
 

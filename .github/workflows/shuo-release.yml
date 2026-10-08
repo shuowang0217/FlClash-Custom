@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - release/shuo-v1.0.0
-      - main
   workflow_dispatch:
     inputs:
       publish:

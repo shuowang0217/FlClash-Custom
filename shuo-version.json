@@ -2,6 +2,8 @@
   "edition": "FlClash SHUO Custom",
   "latest_feature_version": "1.0.0",
   "minimum_supported_feature_version": "1.0.0",
-  "android_version_code": 10000,
+  "android_version_code": 10001,
+  "latest_android_app_version": "1.0.1",
+  "minimum_supported_android_app_version": "1.0.1",
   "release_url": "https://github.com/shuowang0217/FlClash-Custom/releases/latest"
 }

@@ -21,7 +21,7 @@ class ServicePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        channel = MethodChannel(binding.binaryMessenger, "${Components.PACKAGE_NAME}/service")
+        channel = MethodChannel(binding.binaryMessenger, "${Components.FLUTTER_CHANNEL_NAMESPACE}/service")
         channel.setMethodCallHandler(this)
     }
 
