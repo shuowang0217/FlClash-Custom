@@ -1,0 +1,191 @@
+name: SHUO Custom — Windows + Android release candidate
+
+on:
+  push:
+    branches:
+      - release/shuo-v1.0.0
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish v1.0.0 to Releases (only on main with Android release signing enabled)'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.47.4'
+  GO_VERSION: '1.26.4'
+  NDK_VERSION: r28c
+
+jobs:
+  verify:
+    name: Verify source and feature tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: master
+          cache: true
+      - name: Verify Dart source formatting
+        run: dart format --output=none --set-exit-if-changed lib test tool plugins setup.dart
+      - name: Flutter dependencies and smart-select tests
+        run: |
+          flutter pub get
+          flutter test test/smart_select_test.dart test/smart_select_version_test.dart
+
+  windows-release:
+    name: Windows SHUO release EXE and ZIP
+    needs: verify
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - run: git config --global core.longpaths true
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: master
+          cache: true
+      - run: flutter pub get
+      - name: Windows release packaging
+        run: dart setup.dart windows --targets exe,zip --env stable -v
+      - name: Distinguishable package names
+        shell: pwsh
+        run: |
+          Get-ChildItem dist -File | ForEach-Object {
+            if ($_.Name -notlike '*SHUO*') {
+              Rename-Item $_.FullName ('SHUO-Custom-v1.0.0-' + $_.Name)
+            }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SHUO-Custom-v1.0.0-Windows-release
+          path: dist/*
+          if-no-files-found: error
+
+  android-preview:
+    name: Android SHUO candidate (debug-signed, not final)
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: master
+          cache: true
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          add-to-path: true
+          link-to-sdk: true
+      - run: flutter pub get
+      - name: Build Android candidate
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: flutter build apk --debug --target-platform android-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SHUO-Custom-v1.0.0-Android-PREVIEW-DO-NOT-PUBLISH
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+
+  android-release:
+    name: Android signed release APK (requires stable private keystore)
+    if: ${{ vars.SHUO_ANDROID_SIGNED == 'true' }}
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: core/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: master
+          cache: true
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+          add-to-path: true
+          link-to-sdk: true
+      - run: flutter pub get
+      - name: Configure stable Android release signing
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.SHUO_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.SHUO_KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.SHUO_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.SHUO_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_B64" && test -n "$KEY_ALIAS"
+          test -n "$STORE_PASSWORD" && test -n "$KEY_PASSWORD"
+          echo "$KEYSTORE_B64" | base64 -d > android/app/keystore.jks
+          {
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'storePassword=%s\n' "$STORE_PASSWORD"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+          } >> android/local.properties
+      - name: Build Android signed release
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: flutter build apk --release --target-platform android-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SHUO-Custom-v1.0.0-Android-RELEASE-SIGNED
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+  publish:
+    name: Publish stable GitHub Release
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' && vars.SHUO_ANDROID_SIGNED == 'true' }}
+    needs: [verify, windows-release, android-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: SHUO-Custom-v1.0.0-Windows-release
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: SHUO-Custom-v1.0.0-Android-RELEASE-SIGNED
+          path: dist
+      - name: Publish immutable v1.0.0 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v1.0.0 dist/* --repo "${{ github.repository }}" \
+            --title "FlClash SHUO Custom v1.0.0" \
+            --notes "SHUO 定制版。智能优选功能 v1.0.0；包含 Windows EXE/ZIP 与独立签名 Android APK；保留 FlClash GPL-3.0 许可。"

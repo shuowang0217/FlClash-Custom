@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math' as math;
 
+import 'package:fl_clash/common/request.dart';
+import 'smart_select_version.dart';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -66,6 +69,8 @@ class SmartSelectState {
     this.lastRoundBytes = 0,
     this.todayBytes = 0,
     this.today = '',
+    this.upgradeRequired = false,
+    this.latestFeatureVersion = '',
   });
 
   final bool enabled;
@@ -89,6 +94,8 @@ class SmartSelectState {
   final int lastRoundBytes;
   final int todayBytes;
   final String today;
+  final bool upgradeRequired;
+  final String latestFeatureVersion;
 
   SmartSelectState copyWith({
     bool? enabled, bool? aiMode, String? country, bool? manualHold,
@@ -98,6 +105,7 @@ class SmartSelectState {
     int? progressTotal, String? status, DateTime? lastTest,
     List<SmartSpeed>? scores, List<SmartEvent>? events,
     int? lastRoundBytes, int? todayBytes, String? today,
+    bool? upgradeRequired, String? latestFeatureVersion,
   }) => SmartSelectState(
     enabled: enabled ?? this.enabled,
     aiMode: aiMode ?? this.aiMode,
@@ -120,6 +128,8 @@ class SmartSelectState {
     lastRoundBytes: lastRoundBytes ?? this.lastRoundBytes,
     todayBytes: todayBytes ?? this.todayBytes,
     today: today ?? this.today,
+    upgradeRequired: upgradeRequired ?? this.upgradeRequired,
+    latestFeatureVersion: latestFeatureVersion ?? this.latestFeatureVersion,
   );
 }
 
@@ -228,6 +238,36 @@ class SmartSelectController extends Notifier<SmartSelectState> {
       _ready = true;
       _armTimer();
       if (state.enabled) unawaited(testNow());
+      unawaited(_refreshEditionVersion());
+    }
+  }
+
+  /// Minimum supported SHUO version is published in the fork's manifest.
+  Future<void> _refreshEditionVersion() async {
+    try {
+      final response = await request.dio.get<Map<String, dynamic>>(
+        smartSelectManifestUrl,
+      );
+      final data = response.data;
+      if (data == null) return;
+      final minimum = data['minimum_supported_feature_version'];
+      final latest = data['latest_feature_version'];
+      if (minimum is! String || latest is! String) return;
+      final mustUpdate =
+          compareSmartFeatureVersions(smartSelectFeatureVersion, minimum) < 0;
+      state = state.copyWith(
+        upgradeRequired: mustUpdate,
+        latestFeatureVersion: latest,
+        status: mustUpdate
+            ? '当前智能优选功能版本已停止支持，请升级 SHUO 定制版'
+            : null,
+      );
+      if (mustUpdate) {
+        _generation++;
+        _armTimer();
+      }
+    } catch (_) {
+      // Do not break an offline proxy when GitHub is inaccessible.
     }
   }
 
@@ -257,7 +297,7 @@ class SmartSelectController extends Notifier<SmartSelectState> {
 
   void _armTimer() {
     _timer?.cancel();
-    if (!state.enabled) return;
+    if (!state.enabled || state.upgradeRequired) return;
     _timer = Timer.periodic(Duration(minutes: state.intervalMinutes), (_) {
       unawaited(testNow());
     });
@@ -334,7 +374,7 @@ class SmartSelectController extends Notifier<SmartSelectState> {
 
   Future<void> testNow({bool forceRegionPick = false}) async {
     if (!_ready) { await _restoring; }
-    if (!state.enabled) return;
+    if (!state.enabled || state.upgradeRequired) return;
     if (_busy) {
       // In-flight native requests cannot be cancelled, but their results are
       // invalidated. The requested rerun starts after this round finishes.

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'smart_select_controller.dart';
+import 'smart_select_version.dart';
 
 
 /// The side sheet is itself a modal route. Inline options avoid opening
@@ -124,9 +125,21 @@ class SmartSelectStatusCard extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(smartSelectEditionLabel,
+              style: Theme.of(context).textTheme.labelMedium),
+            if (s.upgradeRequired ||
+                (s.latestFeatureVersion.isNotEmpty &&
+                    compareSmartFeatureVersions(s.latestFeatureVersion, smartSelectFeatureVersion) > 0))
+              TextButton.icon(
+                onPressed: () => dialogs.openUrl(smartSelectReleaseUrl),
+                icon: const Icon(Icons.system_update),
+                label: Text(s.upgradeRequired
+                    ? '智能优选旧版停止支持 · 点击升级'
+                    : '发现新功能版本 v${s.latestFeatureVersion} · 点击升级'),
+              ),
             Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
               Chip(avatar: Icon(s.manualHold ? Icons.pause_circle_outline : Icons.auto_awesome,
-                size: 17), label: Text('智能优选 · $text')),
+                size: 17), label: Text('智能优选 v$smartSelectFeatureVersion · $text')),
               Chip(avatar: const Icon(Icons.public, size: 17),
                 label: Text('AI ${s.aiMode ? "开启 · ${smartCountries[s.country] ?? s.country}" : "关闭"}')),
               OutlinedButton.icon(

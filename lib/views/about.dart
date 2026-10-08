@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:fl_clash/features/smart_select/smart_select_version.dart';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/icons/icons.dart';
@@ -181,6 +183,11 @@ class _AboutHero extends StatelessWidget {
                 label: 'v${globalState.packageInfo.version}',
                 color: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
+              ),
+              _Pill(
+                label: 'SHUO · 智能优选 v$smartSelectFeatureVersion',
+                color: colorScheme.secondaryContainer,
+                foregroundColor: colorScheme.onSecondaryContainer,
               ),
               _Pill(
                 label: 'GPL-3.0',
