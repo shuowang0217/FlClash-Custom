@@ -10,10 +10,7 @@ void main() {
     final components = File(
       'android/common/src/main/java/com/follow/clash/common/Components.kt',
     ).readAsStringSync();
-    expect(
-      components,
-      contains('FLUTTER_CHANNEL_NAMESPACE = "$packageName"'),
-    );
+    expect(components, contains('FLUTTER_CHANNEL_NAMESPACE = "$packageName"'));
     for (final plugin in ['AppPlugin', 'ServicePlugin', 'TilePlugin']) {
       final native = File(
         'android/app/src/main/kotlin/com/follow/clash/plugins/$plugin.kt',
@@ -21,7 +18,8 @@ void main() {
       expect(
         native,
         contains(r'${Components.FLUTTER_CHANNEL_NAMESPACE}/'),
-        reason: '$plugin must register its MethodChannel under the Dart namespace',
+        reason:
+            '$plugin must register its MethodChannel under the Dart namespace',
       );
       expect(
         native,
