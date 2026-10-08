@@ -193,6 +193,19 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: flutter build apk --release --target-platform android-arm64
+      - name: Verify permanent release APK signature and package identity
+        if: steps.key.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          test -s "$APK"
+          APK_SIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner -type f | sort -V | tail -n 1)"
+          test -n "$APK_SIGNER"
+          "$APK_SIGNER" verify --verbose --print-certs "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -n 1)"
+          test -n "$AAPT"
+          "$AAPT" dump badging "$APK" | grep -E "^package: name='com[.]shuowang[.]flclash[.]custom' versionCode='10000' versionName='1[.]0[.]0'"
       - uses: actions/upload-artifact@v4
         if: steps.key.outputs.available == 'true'
         with:
@@ -226,4 +239,4 @@ jobs:
         run: |
           gh release create v1.0.0 dist/* --repo "${{ github.repository }}" \
             --title "FlClash SHUO Custom v1.0.0" \
-            --notes "SHUO 定制版。智能优选功能 v1.0.0；包含 Windows EXE/ZIP 与独立签名 Android APK；保留 FlClash GPL-3.0 许可。"
+            --notes "SHUO 个人定制版 · 智能优选功能 v1.0.0。Windows EXE/ZIP 与 Android 固定签名 ARM64 APK；独立于上游 FlClash，保留 GPL-3.0。专项功能测试和双平台发行包通过。注意：上游完整 Dart 测试仍有 UI 布局及规范测试不通过，本版主要供个人自用；使用前请备份配置，不要与原版同时开启 TUN/系统代理。"
