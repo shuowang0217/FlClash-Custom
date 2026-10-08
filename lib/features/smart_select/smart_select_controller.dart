@@ -236,9 +236,10 @@ class SmartSelectController extends Notifier<SmartSelectState> {
       state = state.copyWith(status: '设置读取失败，使用安全默认值');
     } finally {
       _ready = true;
+      // Enforce minimum feature compatibility before the initial speed test.
+      await _refreshEditionVersion();
       _armTimer();
-      if (state.enabled) unawaited(testNow());
-      unawaited(_refreshEditionVersion());
+      if (state.enabled && !state.upgradeRequired) unawaited(testNow());
     }
   }
 
@@ -247,7 +248,7 @@ class SmartSelectController extends Notifier<SmartSelectState> {
     try {
       final response = await request.dio.get<Map<String, dynamic>>(
         smartSelectManifestUrl,
-      );
+      ).timeout(const Duration(seconds: 6));
       final data = response.data;
       if (data == null) return;
       final minimum = data['minimum_supported_feature_version'];
@@ -262,10 +263,8 @@ class SmartSelectController extends Notifier<SmartSelectState> {
             ? '当前智能优选功能版本已停止支持，请升级 SHUO 定制版'
             : null,
       );
-      if (mustUpdate) {
-        _generation++;
-        _armTimer();
-      }
+      if (mustUpdate) _generation++;
+      _armTimer();
     } catch (_) {
       // Do not break an offline proxy when GitHub is inaccessible.
     }

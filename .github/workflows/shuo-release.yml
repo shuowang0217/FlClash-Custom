@@ -37,12 +37,12 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: master
           cache: true
+      - name: Flutter dependencies
+        run: flutter pub get
       - name: Verify Dart source formatting
         run: dart format --output=none --set-exit-if-changed lib test tool plugins setup.dart
-      - name: Flutter dependencies and smart-select tests
-        run: |
-          flutter pub get
-          flutter test test/smart_select_test.dart test/smart_select_version_test.dart
+      - name: Smart-select tests
+        run: flutter test test/smart_select_test.dart test/smart_select_version_test.dart
 
   windows-release:
     name: Windows SHUO release EXE and ZIP
