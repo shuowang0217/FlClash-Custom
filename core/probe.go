@@ -175,6 +175,7 @@ type probeRequest struct {
 	body      []byte
 	timeout   time.Duration
 	maxBody   int64
+	measureDownload bool
 
 	// A followed redirect loses the Location that Netflix names its region in.
 	noRedirect bool
@@ -184,13 +185,22 @@ type probeRequest struct {
 }
 
 func handleProbe(params *ProbeParams) *ProbeResult {
+	// Private internal switch: not transmitted as an HTTP request header.
+	measureDownload := params.Headers["X-FlClash-Measure-Download"] == "1"
+	headers := make(map[string]string, len(params.Headers))
+	for name, value := range params.Headers {
+		if name != "X-FlClash-Measure-Download" {
+			headers[name] = value
+		}
+	}
 	return runProbe(context.Background(), probeRequest{
 		method:    http.MethodGet,
 		url:       params.Url,
 		proxyName: params.ProxyName,
-		headers:   params.Headers,
+		headers:   headers,
 		timeout:   probeTimeout(params.Timeout),
 		maxBody:   params.MaxBody,
+		measureDownload: measureDownload,
 	})
 }
 
@@ -277,6 +287,27 @@ func runProbe(parent context.Context, req probeRequest) *ProbeResult {
 		result.Chains = route.chains
 		result.Rule = route.rule
 		result.RulePayload = route.rulePayload
+	}
+	if req.measureDownload {
+		if response.StatusCode != http.StatusOK {
+			return fail(fmt.Errorf("download probe returned HTTP %d", response.StatusCode))
+		}
+		if req.maxBody <= 0 || req.maxBody > 5*1024*1024 {
+			return fail(fmt.Errorf("invalid download probe byte cap"))
+		}
+		// probeDialer pins the download to req.proxyName. Discard BODY bytes
+		// after measuring them; never move random binary payloads over JSON.
+		startBody := time.Now()
+		n, copyErr := io.Copy(io.Discard, io.LimitReader(response.Body, req.maxBody))
+		micros := time.Since(startBody).Microseconds()
+		if micros < 1 {
+			micros = 1
+		}
+		result.Body = fmt.Sprintf("%d,%d", n, micros)
+		if copyErr != nil {
+			return fail(copyErr)
+		}
+		return result
 	}
 	if req.maxBody > 0 {
 		result.Body = readProbeBody(response.Body, req.maxBody, req.until)

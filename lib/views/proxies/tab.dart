@@ -9,6 +9,7 @@ import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fl_clash/features/smart_select/smart_select_ui.dart';
 
 import 'card.dart';
 import 'common.dart';
@@ -268,6 +269,7 @@ class ProxiesTabViewState extends ConsumerState<ProxiesTabView>
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SmartSelectStatusCard(),
             NotificationListener<ScrollMetricsNotification>(
               onNotification: (scrollNotification) {
                 _hasMoreButtonNotifier.value =

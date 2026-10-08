@@ -1,4 +1,5 @@
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/features/smart_select/smart_select_controller.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/icons/icons.dart';
 import 'package:fl_clash/models/models.dart';
@@ -17,6 +18,9 @@ void selectGroupProxy(
   final isComputedSelected = groupType.isComputedSelected;
   if (isComputedSelected || groupType == GroupType.Selector) {
     final currentProxyName = ref.read(proxyNameProvider(groupName));
+    if (currentProxyName != proxyName) {
+      ref.read(smartSelectProvider.notifier).manualSelection(groupName);
+    }
     final nextProxyName = switch (isComputedSelected) {
       true => currentProxyName == proxyName ? '' : proxyName,
       false => proxyName,
