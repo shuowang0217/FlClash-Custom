@@ -1,8 +1,40 @@
 import 'package:fl_clash/features/smart_select/smart_select_controller.dart';
+import 'package:fl_clash/features/smart_select/smart_select_ui.dart';
+import 'package:flutter/material.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('country choices expand inside the side panel and can change Japan to Hong Kong', (tester) async {
+    var chosen = 'JP';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => SingleChildScrollView(
+              child: SmartInlinePicker<String>(
+                title: '固定国家 / 地区',
+                value: chosen,
+                options: smartCountries,
+                onSelected: (value) => setState(() => chosen = value),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('🇯🇵 日本'), findsOneWidget);
+    await tester.tap(find.text('固定国家 / 地区'));
+    await tester.pumpAndSettle();
+    expect(find.text('🇭🇰 香港'), findsOneWidget);
+    expect(find.text('🇸🇬 新加坡'), findsOneWidget);
+    await tester.tap(find.text('🇭🇰 香港'));
+    await tester.pumpAndSettle();
+    expect(chosen, 'HK');
+    expect(find.text('🇭🇰 香港'), findsOneWidget);
+    expect(find.text('🇯🇵 日本'), findsNothing);
+  });
+
   group('AI single-country matching', () {
     test('Japanese nodes match both Chinese and emoji markers', () {
       expect(smartCountryMatches('🇯🇵 日本高速01', 'JP'), isTrue);
