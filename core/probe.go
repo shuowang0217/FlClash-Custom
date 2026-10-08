@@ -196,10 +196,10 @@ func handleProbe(params *ProbeParams) *ProbeResult {
 	return runProbe(context.Background(), probeRequest{
 		method:          http.MethodGet,
 		url:             params.Url,
-		proxyName:        params.ProxyName,
-		headers:          headers,
-		timeout:          probeTimeout(params.Timeout),
-		maxBody:          params.MaxBody,
+		proxyName:       params.ProxyName,
+		headers:         headers,
+		timeout:         probeTimeout(params.Timeout),
+		maxBody:         params.MaxBody,
 		measureDownload: measureDownload,
 	})
 }
