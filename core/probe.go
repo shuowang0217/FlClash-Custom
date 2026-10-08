@@ -168,13 +168,13 @@ func probeErrorKind(err error) string {
 }
 
 type probeRequest struct {
-	method    string
-	url       string
-	proxyName string
-	headers   map[string]string
-	body      []byte
-	timeout   time.Duration
-	maxBody   int64
+	method          string
+	url             string
+	proxyName       string
+	headers         map[string]string
+	body            []byte
+	timeout         time.Duration
+	maxBody         int64
 	measureDownload bool
 
 	// A followed redirect loses the Location that Netflix names its region in.
@@ -194,12 +194,12 @@ func handleProbe(params *ProbeParams) *ProbeResult {
 		}
 	}
 	return runProbe(context.Background(), probeRequest{
-		method:    http.MethodGet,
-		url:       params.Url,
-		proxyName: params.ProxyName,
-		headers:   headers,
-		timeout:   probeTimeout(params.Timeout),
-		maxBody:   params.MaxBody,
+		method:          http.MethodGet,
+		url:             params.Url,
+		proxyName:        params.ProxyName,
+		headers:          headers,
+		timeout:          probeTimeout(params.Timeout),
+		maxBody:          params.MaxBody,
 		measureDownload: measureDownload,
 	})
 }
