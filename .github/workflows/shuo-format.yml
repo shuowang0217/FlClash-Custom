@@ -4,6 +4,7 @@ on:
     branches:
       - release/shuo-v1.0.0
       - hotfix/android-channel-v1.0.1
+      - hotfix/android-startup-v1.0.2
 permissions:
   contents: write
 jobs:
@@ -26,7 +27,7 @@ jobs:
           dart format lib/features/smart_select lib/views/about.dart lib/common/constant.dart
           dart format lib/views/proxies/card.dart lib/views/proxies/list.dart lib/views/proxies/tab.dart
           dart format test/smart_select_test.dart test/smart_select_version_test.dart
-          dart format test/android_method_channel_contract_test.dart
+          dart format test/android_method_channel_contract_test.dart test/android_startup_no_firebase_test.dart
       - name: Save formatting when needed
         shell: bash
         run: |
@@ -36,7 +37,7 @@ jobs:
             git add lib/features/smart_select lib/views/about.dart lib/common/constant.dart
             git add lib/views/proxies/card.dart lib/views/proxies/list.dart lib/views/proxies/tab.dart
             git add test/smart_select_test.dart test/smart_select_version_test.dart
-            git add test/android_method_channel_contract_test.dart
+            git add test/android_method_channel_contract_test.dart test/android_startup_no_firebase_test.dart
             git commit -m 'style: normalize SHUO release Dart formatting'
             git push origin HEAD:${{ github.ref_name }}
           fi
