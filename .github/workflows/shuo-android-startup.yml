@@ -116,7 +116,7 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -n 1)"
           test -n "$APK_SIGNER" && test -n "$AAPT"
           "$APK_SIGNER" verify --verbose "$APK"
-          "$AAPT" dump badging "$APK" | grep -E "^package: name='com[.]shuowang[.]flclash[.]custom' versionCode='10002' versionName='1[.]0[.]1'"
+          "$AAPT" dump badging "$APK" | grep -E "^package: name='com[.]shuowang[.]flclash[.]custom' versionCode='10002' versionName='1[.]0[.]2'"
           EXPECTED='3e8826e8aa48576ddfce7a9a2e78106a159c7be05dbb3b2f89eb60fb095ac9d9'
           CERT_INFO="$("$APK_SIGNER" verify --print-certs "$APK")"
           ACTUAL="$(printf '%s\n' "$CERT_INFO" | sed -nE 's/.*certificate SHA-256 digest:[[:space:]]*([0-9a-fA-F]{64}).*/\1/p' | tr '[:upper:]' '[:lower:]' | head -n 1)"
@@ -160,4 +160,4 @@ jobs:
           gh release create v1.0.2 dist/* --repo "${{ github.repository }}" \
             --title "FlClash SHUO Custom v1.0.2 — Android 启动修复验证版" \
             --prerelease \
-            --notes "Android 原生闪退修复：移除 SHUO 独立包名后遗留的 Firebase 初始化（它可能导致启动服务时崩溃）；保留 v1.0.1 的 MethodChannel 修复。Android 包名与固定签名不变，版本码从 10000 更新到 10002，可覆盖安装 Android v1.0.1，无需卸载或清空配置。Windows v1.0.0 已正常，无须更新：https://github.com/shuowang0217/FlClash-Custom/releases/tag/v1.0.0 。智能优选功能版本保持 v1.0.0。本版经过 Dart 通道回归、Firebase-free 启动检查、Kotlin 单元测试、Android release 构建及证书 SHA-256 一致性校验。此前 v1.0.1 在部分手机上同意免责声明后闪退；v1.0.2 仍需用户实际安装验证，因此暂标记预发布。"
+            --notes "Android 原生闪退修复：移除 SHUO 独立包名后遗留的 Firebase 初始化（它可能导致启动服务时崩溃）；保留 v1.0.1 的 MethodChannel 修复。Android 包名与固定签名不变，版本码从 10001 更新到 10002，可覆盖安装 Android v1.0.1，无需卸载或清空配置。Windows v1.0.0 已正常，无须更新：https://github.com/shuowang0217/FlClash-Custom/releases/tag/v1.0.0 。智能优选功能版本保持 v1.0.0。本版经过 Dart 通道回归、Firebase-free 启动检查、Kotlin 单元测试、Android release 构建及证书 SHA-256 一致性校验。此前 v1.0.1 在部分手机上同意免责声明后闪退；v1.0.2 仍需用户实际安装验证，因此暂标记预发布。"
