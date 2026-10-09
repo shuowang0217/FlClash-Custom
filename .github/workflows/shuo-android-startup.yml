@@ -1,9 +1,10 @@
-name: SHUO Android v1.0.1 channel hotfix
+name: SHUO Android v1.0.2 startup hotfix
 
 on:
   push:
     branches:
-      - hotfix/android-channel-v1.0.1
+      - hotfix/android-startup-v1.0.2
+      - main
   workflow_dispatch:
 
 permissions:
@@ -16,7 +17,7 @@ env:
 
 jobs:
   verify:
-    name: Verify Flutter/Android channel contract
+    name: Verify Firebase-free startup and Flutter/Android channels
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +34,7 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Test Android channel contract and smart select version
-        run: flutter test test/android_method_channel_contract_test.dart test/smart_select_test.dart test/smart_select_version_test.dart
+        run: flutter test test/android_method_channel_contract_test.dart test/android_startup_no_firebase_test.dart test/smart_select_test.dart test/smart_select_version_test.dart
       - uses: nttld/setup-ndk@v1
         id: ndk
         with:
@@ -63,7 +64,7 @@ jobs:
             -x :app:compileFlutterBuildDebug -x :app:copyFlutterAssetsDebug
 
   android-release:
-    name: Build & verify permanently signed Android v1.0.1 APK
+    name: Build & verify permanently signed Android v1.0.2 APK
     needs: verify
     runs-on: ubuntu-latest
     steps:
@@ -115,23 +116,23 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name aapt -type f | sort -V | tail -n 1)"
           test -n "$APK_SIGNER" && test -n "$AAPT"
           "$APK_SIGNER" verify --verbose "$APK"
-          "$AAPT" dump badging "$APK" | grep -E "^package: name='com[.]shuowang[.]flclash[.]custom' versionCode='10001' versionName='1[.]0[.]1'"
+          "$AAPT" dump badging "$APK" | grep -E "^package: name='com[.]shuowang[.]flclash[.]custom' versionCode='10002' versionName='1[.]0[.]1'"
           EXPECTED='3e8826e8aa48576ddfce7a9a2e78106a159c7be05dbb3b2f89eb60fb095ac9d9'
           CERT_INFO="$("$APK_SIGNER" verify --print-certs "$APK")"
           ACTUAL="$(printf '%s\n' "$CERT_INFO" | sed -nE 's/.*certificate SHA-256 digest:[[:space:]]*([0-9a-fA-F]{64}).*/\1/p' | tr '[:upper:]' '[:lower:]' | head -n 1)"
           echo "Expected v1.0.0 public certificate digest: $EXPECTED"
-          echo "New v1.0.1 public certificate digest: ${ACTUAL:-not found}"
+          echo "New v1.0.2 public certificate digest: ${ACTUAL:-not found}"
           if [ "$ACTUAL" != "$EXPECTED" ]; then
             echo "::error::APK certificate verification mismatch. Signing material was not changed; inspect public certificate digests."
             printf '%s\n' "$CERT_INFO" | grep -i "certificate SHA-256" || true
             exit 1
           fi
           mkdir -p dist
-          cp "$APK" dist/FlClash-SHUO-Custom-v1.0.1-android-arm64.apk
+          cp "$APK" dist/FlClash-SHUO-Custom-v1.0.2-android-arm64.apk
           (cd dist && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: FlClash-SHUO-Android-v1.0.1-FIXED-SIGNED
+          name: FlClash-SHUO-Android-v1.0.2-FIXED-SIGNED
           path: dist/*
           if-no-files-found: error
       - name: Delete plaintext signing key from workspace
@@ -140,7 +141,7 @@ jobs:
         run: rm -f android/app/keystore.jks
 
   publish:
-    name: Publish Android v1.0.1 fix without changing Windows v1.0.0
+    name: Publish Android v1.0.2 fix without changing Windows v1.0.0
     if: ${{ github.ref == 'refs/heads/main' }}
     needs: [verify, android-release]
     runs-on: ubuntu-latest
@@ -149,13 +150,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: FlClash-SHUO-Android-v1.0.1-FIXED-SIGNED
+          name: FlClash-SHUO-Android-v1.0.2-FIXED-SIGNED
           path: dist
-      - name: Publish v1.0.1 Android repair
+      - name: Publish v1.0.2 Android repair
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release create v1.0.1 dist/* --repo "${{ github.repository }}" \
-            --title "FlClash SHUO Custom v1.0.1 — Android 修复版" \
-            --notes "Android 专项紧急修复：解决 v1.0.0 的 MissingPluginException(init) 原生通信通道错误。Android 包名与固定签名不变，版本码从 10000 更新到 10001，可覆盖安装 Android v1.0.0，无需卸载或清空配置。Windows v1.0.0 已正常，无须更新：https://github.com/shuowang0217/FlClash-Custom/releases/tag/v1.0.0 。智能优选功能版本保持 v1.0.0。本版经过 Dart 通道回归、Kotlin 单元测试、Android release 构建及证书 SHA-256 一致性校验；尚待用户实际安装确认。"
+          gh release create v1.0.2 dist/* --repo "${{ github.repository }}" \
+            --title "FlClash SHUO Custom v1.0.2 — Android 修复版" \
+            --notes "Android 原生闪退修复：移除 SHUO 独立包名后遗留的 Firebase 初始化（它可能导致启动服务时崩溃）；保留 v1.0.1 的 MethodChannel 修复。Android 包名与固定签名不变，版本码从 10000 更新到 10002，可覆盖安装 Android v1.0.1，无需卸载或清空配置。Windows v1.0.0 已正常，无须更新：https://github.com/shuowang0217/FlClash-Custom/releases/tag/v1.0.0 。智能优选功能版本保持 v1.0.0。本版经过 Dart 通道回归、Kotlin 单元测试、Android release 构建及证书 SHA-256 一致性校验；尚待用户实际安装确认。"

@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('SHUO edition feature version is explicit', () {
     expect(smartSelectEditionLabel, contains('SHUO'));
-    expect(smartSelectEditionLabel, contains('v1.0.1'));
+    expect(smartSelectEditionLabel, contains('v1.0.2'));
     expect(smartSelectFeatureVersion, '1.0.0');
     expect(smartSelectFeatureBuild, 10000);
   });

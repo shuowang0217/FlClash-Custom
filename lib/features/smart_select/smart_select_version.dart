@@ -1,5 +1,5 @@
 /// Dedicated SHUO edition (not an upstream chen08209 build).
-const smartSelectEditionLabel = 'FlClash SHUO Custom · v1.0.1';
+const smartSelectEditionLabel = 'FlClash SHUO Custom · v1.0.2';
 const smartSelectFeatureVersion = '1.0.0';
 const smartSelectFeatureBuild = 10000;
 const smartSelectReleaseUrl =
