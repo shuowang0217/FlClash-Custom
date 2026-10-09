@@ -1,0 +1,37 @@
+name: Promote SHUO Android v1.0.2 after device validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/shuo-promote-v1.0.2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Promote already-signed v1.0.2 Android release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="v1.0.2"
+          repo="$GITHUB_REPOSITORY"
+          # The original signed APK must already exist. Never rebuild or re-sign.
+          gh release view "$release" --repo "$repo" --json assets --jq '.assets[].name' \
+            | grep -Fx 'FlClash-SHUO-Custom-v1.0.2-android-arm64.apk'
+          notes="$(mktemp)"
+          gh release view "$release" --repo "$repo" --json body --jq '.body' > "$notes"
+          if ! grep -Fq '实机完整功能验证（2026-10-09）' "$notes"; then
+            printf '\n\n### 实机完整功能验证（2026-10-09）\n' >> "$notes"
+            printf '已由使用者实机确认：启动及免责声明、节点测速、智能优选、代理连接、VPN 模式均正常。\n' >> "$notes"
+            printf '此前标记预发布是因为等待 Android 真实设备验证，现已通过，升级为稳定版。\n' >> "$notes"
+            printf 'Windows 请继续使用 v1.0.0；Android v1.0.2 的包名、现有签名证书和安装文件均未改变。\n' >> "$notes"
+          fi
+          gh release edit "$release" --repo "$repo" --prerelease=false --latest --notes-file "$notes"
+          gh release view "$release" --repo "$repo" --json isPrerelease,tagName --jq '{tag: .tagName, prerelease: .isPrerelease}'
